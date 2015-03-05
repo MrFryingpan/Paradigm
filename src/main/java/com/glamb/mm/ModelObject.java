@@ -61,7 +61,9 @@ public abstract class ModelObject {
                             }
                         }
                     }
-                    if (c.equals(String.class) || c.equals(char.class)) {
+                    if (inx == -1){
+                        Log.w(getClassName(getClass()), String.format("Field %s not found in Database and will not be initialized", field.getName()));
+                    } else if (c.equals(String.class) || c.equals(char.class)) {
                         field.set(this, cursor.getString(inx));
                     } else if (c.equals(int.class) || c.equals(Integer.class)) {
                         field.setInt(this, cursor.getInt(inx));
