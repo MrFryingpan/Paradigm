@@ -64,6 +64,7 @@ public class Query<T extends ModelObject> {
 
         populateList(list, cursor);
 
+        cursor.close();
         return list;
     }
 

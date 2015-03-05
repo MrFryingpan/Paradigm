@@ -6,8 +6,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.preference.PreferenceManager;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.List;
 
 public class ModelManager extends SQLiteOpenHelper {
     private static final String DB_VERSION_KEY = "com.glamb.db.version";
@@ -17,6 +16,10 @@ public class ModelManager extends SQLiteOpenHelper {
     public static void init(Context context, String name) {
         if (instance == null) {
             instance = new ModelManager(context, name);
+            MetaData dTable = new MetaData();
+            dTable.name = dTable.getTableName();
+            dTable.revision = dTable.getRevision();
+            dTable.save();
         }
     }
 
@@ -29,7 +32,6 @@ public class ModelManager extends SQLiteOpenHelper {
     }
 
     private SQLiteDatabase db;
-    private Set<Class<?>> registeredClasses = new HashSet<>();
 
     private ModelManager(Context context, String name) {
         super(context, name, null,
@@ -39,7 +41,6 @@ public class ModelManager extends SQLiteOpenHelper {
 
     @Override
     public void onCreate(SQLiteDatabase db) {
-
     }
 
     @Override
@@ -48,8 +49,7 @@ public class ModelManager extends SQLiteOpenHelper {
     }
 
     public static void register(ModelObject object) {
-        if (!isRegistered(object.getClass()))
-            get().registerObject(object);
+        get().registerObject(object);
     }
 
     public static void insert(ModelObject object) {
@@ -64,7 +64,7 @@ public class ModelManager extends SQLiteOpenHelper {
         get().updateData(object);
     }
 
-    public static int count(Query query){
+    public static int count(Query query) {
         return get().countData(query);
     }
 
@@ -72,17 +72,32 @@ public class ModelManager extends SQLiteOpenHelper {
         return get().queryData(table, selection);
     }
 
-    public static Cursor query(Query query){
+    public static Cursor query(Query query) {
         return get().queryData(query);
     }
 
-    private static boolean isRegistered(Class<?> clazz) {
-        return get().registeredClasses.contains(clazz);
+    private void registerObject(ModelObject object) {
+        MetaData data = new MetaData(object.getTableName());
+        if (data.revision == -1) {
+            createTable(object);
+        } else {
+            if (data.revision == object.getRevision()) {
+                return;
+            } else if (data.revision < object.getRevision()) {
+                data.revision = object.getRevision();
+                data.save();
+                upgradeTable(object);
+            } else if (data.revision >= 0 && data.revision > object.getRevision()) {
+                throw new RuntimeException(String.format("Database version of %s is newer than model version", object.getTableName()));
+            }
+        }
+
+
+        data.revision = object.getRevision();
+        data.save();
     }
 
-    private void registerObject(ModelObject object) {
-        registeredClasses.add(object.getClass());
-
+    public void createTable(ModelObject object) {
         StringBuilder create = new StringBuilder("CREATE TABLE IF NOT EXISTS ")
                 .append(object.getTableName()).append(" ( ");
         for (String key : object.getColumns().keySet()) {
@@ -92,7 +107,27 @@ public class ModelManager extends SQLiteOpenHelper {
         create.append(" PRIMARY KEY (").append(object.getPrimaryKey()).append("));");
 
         db.execSQL(create.toString());
+    }
 
+    public void upgradeTable(ModelObject object) {
+        db.beginTransaction();
+        try {
+            //Move Table Data to new Table
+            String sql = String.format("ALTER TABLE %s RENAME TO %s_old", object.getTableName(), object.getTableName());
+            db.execSQL(sql);
+            createTable(object);
+            Class<? extends ModelObject> clazz = object.getClass();
+            Query<? extends ModelObject> query = Query.allOfObject(clazz);
+            query.table += "_old";
+            List<? extends ModelObject> objects = query.execute();
+            for (ModelObject transfer : objects) {
+                transfer.save();
+            }
+            db.execSQL(String.format("DROP TABLE %s_old", object.getTableName()));
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
     }
 
     private void insertData(ModelObject object) {
@@ -102,27 +137,44 @@ public class ModelManager extends SQLiteOpenHelper {
 
     private void insertData(ModelObject object, int conflict) {
         object.insertionTime = System.currentTimeMillis();
-        db.insertWithOnConflict(object.getTableName(), null, object.getValues(), conflict);
+        db.beginTransaction();
+        try {
+            db.insertWithOnConflict(object.getTableName(), null, object.getValues(), conflict);
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
     }
 
     private void updateData(ModelObject object) {
         object.insertionTime = System.currentTimeMillis();
-        db.update(object.getTableName(), object.getValues(), object.getSelection(), null);
+        db.beginTransaction();
+        try {
+            db.update(object.getTableName(), object.getValues(), object.getSelection(), null);
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
     }
 
-    private int countData(Query query){
-        Cursor cursor =  db.query(query.table, new String[]{"count(*)"}, query.selection, query.args, query.groupBy, query.having, query.orderBy);
-        if(cursor.moveToFirst()){
-            return cursor.getInt(0);
+    private int countData(Query query) {
+        Cursor cursor = db.query(query.table, new String[]{"count(*)"}, query.selection, query.args, query.groupBy, query.having, query.orderBy);
+        int count = 0;
+        if (cursor.moveToFirst()) {
+            count = cursor.getInt(0);
         }
-        return 0;
+        cursor.close();
+
+        return count;
+
+
     }
 
     private Cursor queryData(String table, String selection) {
         return db.query(table, null, selection, null, null, null, null, null);
     }
 
-    private Cursor queryData(Query query){
+    private Cursor queryData(Query query) {
         return db.query(query.table, query.columns, query.selection, query.args, query.groupBy, query.having, query.orderBy, query.limit);
     }
 }

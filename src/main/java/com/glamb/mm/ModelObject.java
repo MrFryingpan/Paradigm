@@ -2,6 +2,7 @@ package com.glamb.mm;
 
 import android.content.ContentValues;
 import android.database.Cursor;
+import android.database.sqlite.SQLiteException;
 import android.os.Bundle;
 import android.util.Log;
 
@@ -20,17 +21,25 @@ public abstract class ModelObject {
     }
 
     public ModelObject(Object primaryKey) {
-        this();
+        Cursor cursor = null;
         try {
             getPrimaryField().set(this, primaryKey);
 
-            Cursor cursor = ModelManager.query(getTableName(), getSelection());
+            cursor = ModelManager.query(getTableName(), getSelection());
             if(cursor.moveToFirst()) {
                 init(cursor);
+            } else {
+                assignDefaults();
             }
+            cursor.close();
 
-        } catch (IllegalAccessException e) {
+        } catch (IllegalAccessException | SQLiteException e) {
             e.printStackTrace();
+            assignDefaults();
+        } finally {
+            if(cursor != null){
+                cursor.close();
+            }
         }
     }
 
@@ -41,6 +50,17 @@ public abstract class ModelObject {
                 try {
                     Class<?> c = field.getType();
                     int inx = cursor.getColumnIndex(field.getName());
+                    if(inx == -1){
+                        Previously previously = field.getAnnotation(Previously.class);
+                        if(previously != null){
+                            for(String oldName: previously.value()){
+                                inx = cursor.getColumnIndex(oldName);
+                                if(inx > 0){
+                                    break;
+                                }
+                            }
+                        }
+                    }
                     if (c.equals(String.class) || c.equals(char.class)) {
                         field.set(this, cursor.getString(inx));
                     } else if (c.equals(int.class) || c.equals(Integer.class)) {
@@ -91,6 +111,9 @@ public abstract class ModelObject {
         }
     }
 
+    public void assignDefaults(){
+        //Available for Override on case-by-case basis;
+    }
 
     // ----- Bundle Methods -----
     public void init(Bundle bundle) {
@@ -268,6 +291,21 @@ public abstract class ModelObject {
         }
 
         return values;
+    }
+
+    public int getRevision(){
+        try {
+            Revision anno = getClass().getAnnotation(Revision.class);
+            if(anno == null) {
+                return 0;
+            } else {
+                return anno.value();
+            }
+        } catch (SecurityException e) {
+            e.printStackTrace();
+        }
+
+        return -1;
     }
 
 
