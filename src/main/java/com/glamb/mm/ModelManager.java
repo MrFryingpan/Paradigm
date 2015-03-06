@@ -1,5 +1,6 @@
 package com.glamb.mm;
 
+import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
@@ -52,6 +53,10 @@ public class ModelManager extends SQLiteOpenHelper {
         get().registerObject(object);
     }
 
+    public static void createRelationship(String parent, String field, String pType, String cType){
+        get().createRelationshipTable(parent, field, pType, cType);
+    }
+
     public static void insert(ModelObject object) {
         get().insertData(object);
     }
@@ -62,6 +67,10 @@ public class ModelManager extends SQLiteOpenHelper {
 
     public static void update(ModelObject object) {
         get().updateData(object);
+    }
+
+    public static void connect(String parent, String field, ContentValues values){
+        get().connectTables(parent, field, values);
     }
 
     public static int count(Query query) {
@@ -95,6 +104,17 @@ public class ModelManager extends SQLiteOpenHelper {
 
         data.revision = object.getRevision();
         data.save();
+    }
+
+    public void createRelationshipTable(String parent, String field, String pType, String cType){
+        String sql = String.format("CREATE TABLE IF NOT EXISTS %s_%s (" +
+                        "parentKey %s, " +
+                        "childKey %s, " +
+                        "inx INTEGER, " +
+                        "PRIMARY KEY(parentKey, inx))",
+                parent, field, pType, cType);
+
+        db.execSQL(sql);
     }
 
     public void createTable(ModelObject object) {
@@ -151,6 +171,16 @@ public class ModelManager extends SQLiteOpenHelper {
         db.beginTransaction();
         try {
             db.update(object.getTableName(), object.getValues(), object.getSelection(), null);
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
+    }
+
+    public void connectTables(String parent, String field, ContentValues values){
+        db.beginTransaction();
+        try {
+            db.insertWithOnConflict(parent + "_" + field, null, values, SQLiteDatabase.CONFLICT_REPLACE);
             db.setTransactionSuccessful();
         } finally {
             db.endTransaction();
