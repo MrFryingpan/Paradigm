@@ -1,6 +1,8 @@
-package com.glamb.mm;
+package com.glamb.paradigm;
 
 import android.util.Log;
+
+import com.glamb.paradigm.annotation.PrimaryKey;
 
 import java.lang.reflect.Field;
 import java.util.AbstractCollection;

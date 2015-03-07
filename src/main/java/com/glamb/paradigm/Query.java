@@ -1,4 +1,4 @@
-package com.glamb.mm;
+package com.glamb.paradigm;
 
 import android.database.Cursor;
 
@@ -60,7 +60,7 @@ public class Query<T extends ModelObject> {
 
     public List<T> execute() {
         List<T> list = new ArrayList<>();
-        Cursor cursor = ModelManager.query(this);
+        Cursor cursor = Paradigm.query(this);
 
         populateList(list, cursor);
 
@@ -74,6 +74,6 @@ public class Query<T extends ModelObject> {
     }
 
     public int count(){
-        return ModelManager.count(this);
+        return Paradigm.count(this);
     }
 }

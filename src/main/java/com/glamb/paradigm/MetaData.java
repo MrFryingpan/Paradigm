@@ -1,4 +1,7 @@
-package com.glamb.mm;
+package com.glamb.paradigm;
+
+import com.glamb.paradigm.annotation.PrimaryKey;
+import com.glamb.paradigm.annotation.Revision;
 
 @Revision(0)
 public class MetaData extends ModelObject{

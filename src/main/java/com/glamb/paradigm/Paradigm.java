@@ -1,4 +1,4 @@
-package com.glamb.mm;
+package com.glamb.paradigm;
 
 import android.content.ContentValues;
 import android.content.Context;
@@ -9,14 +9,14 @@ import android.preference.PreferenceManager;
 
 import java.util.List;
 
-public class ModelManager extends SQLiteOpenHelper {
+public class Paradigm extends SQLiteOpenHelper {
     private static final String DB_VERSION_KEY = "com.glamb.db.version";
 
-    private static ModelManager instance;
+    private static Paradigm instance;
 
     public static void init(Context context, String name) {
         if (instance == null) {
-            instance = new ModelManager(context, name);
+            instance = new Paradigm(context, name);
             MetaData dTable = new MetaData();
             dTable.name = dTable.getTableName();
             dTable.revision = dTable.getRevision();
@@ -24,7 +24,7 @@ public class ModelManager extends SQLiteOpenHelper {
         }
     }
 
-    private static ModelManager get() {
+    private static Paradigm get() {
         if (instance == null) {
             throw new RuntimeException("Database Not Initialized. \n Call ModelManager.init(Context) before use");
         }
@@ -34,7 +34,7 @@ public class ModelManager extends SQLiteOpenHelper {
 
     private SQLiteDatabase db;
 
-    private ModelManager(Context context, String name) {
+    private Paradigm(Context context, String name) {
         super(context, name, null,
                 PreferenceManager.getDefaultSharedPreferences(context).getInt(DB_VERSION_KEY, 1));
         db = getWritableDatabase();

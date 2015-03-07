@@ -1,10 +1,14 @@
-package com.glamb.mm;
+package com.glamb.paradigm;
 
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteException;
 import android.os.Bundle;
 import android.util.Log;
+
+import com.glamb.paradigm.annotation.OrderBy;
+import com.glamb.paradigm.annotation.Previously;
+import com.glamb.paradigm.annotation.Revision;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -24,7 +28,7 @@ public abstract class ModelObject {
 
     // ----- Creator Methods -----
     public ModelObject() {
-        ModelManager.register(this);
+        Paradigm.register(this);
     }
 
     public ModelObject(Object primaryKey) {
@@ -32,7 +36,7 @@ public abstract class ModelObject {
         try {
             ModelUtil.getPrimaryField(getClass()).set(this, primaryKey);
 
-            cursor = ModelManager.query(getTableName(), getSelection());
+            cursor = Paradigm.query(getTableName(), getSelection());
             if (cursor.moveToFirst()) {
                 init(cursor);
             } else {
@@ -110,7 +114,7 @@ public abstract class ModelObject {
                     } else if (ModelUtil.isSubclassOf(c, AbstractCollection.class)) {
                         ParameterizedType pType = (ParameterizedType) field.getGenericType();
                         Class<?> generic = (Class<?>) pType.getActualTypeArguments()[0];
-                        Cursor subCursor = ModelManager.query(String.format("%s_%s",
+                        Cursor subCursor = Paradigm.query(String.format("%s_%s",
                                         ModelUtil.getClassName(getClass()),
                                         field.getName()),
                                 String.format("parentKey =%s", getSelection().split("=")[1]));
@@ -280,7 +284,7 @@ public abstract class ModelObject {
 
     // ----- Database Methods -----
     public Field save() {
-        ModelManager.insert(this);
+        Paradigm.insert(this);
         return ModelUtil.getPrimaryField(getClass());
     }
 
@@ -302,7 +306,7 @@ public abstract class ModelObject {
                     if (ModelUtil.isSubclassOf(fieldClass, ModelObject.class)) {
                         fieldClass = ModelUtil.getPrimaryField(fieldClass).getType();
                     }
-                    ModelManager.createRelationship(getTableName(), field.getName(),
+                    Paradigm.createRelationship(getTableName(), field.getName(),
                             ModelUtil.determineDatatype(parentClass),
                             ModelUtil.determineDatatype(fieldClass));
                 }
@@ -459,7 +463,7 @@ public abstract class ModelObject {
                             putValueWithName(childValues, "parentKey", parentClass, parentKey);
                             putValueWithName(childValues, "childKey", child.getType(), child.get(object));
                             childValues.put("inx", inx++);
-                            ModelManager.connect(this.getTableName(), field.getName(), childValues);
+                            Paradigm.connect(this.getTableName(), field.getName(), childValues);
                         }
                     }
                 } else {
@@ -471,7 +475,7 @@ public abstract class ModelObject {
                             putValueWithName(childValues, "parentKey", parentClass, parentKey);
                             putValueWithName(childValues, "childKey", generic, object);
                             childValues.put("inx", inx++);
-                            ModelManager.connect(this.getTableName(), field.getName(), childValues);
+                            Paradigm.connect(this.getTableName(), field.getName(), childValues);
                         }
                     }
                 }

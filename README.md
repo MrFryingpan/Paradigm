@@ -1,1 +1,1 @@
-# ModelManager
+# Paradigm

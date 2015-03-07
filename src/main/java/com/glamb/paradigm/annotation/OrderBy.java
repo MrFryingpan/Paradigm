@@ -1,4 +1,4 @@
-package com.glamb.mm;
+package com.glamb.paradigm.annotation;
 
 public @interface OrderBy {
     Order order() default Order.ASC;
